@@ -2,10 +2,15 @@
 
 An end-to-end NLP pipeline that analyzes LiveMint financial news articles and determines which NIFTY 50 stocks are affected, the direction and strength of impact, and produces actionable trading signals.
 
+Supports both **manual article URL processing** and **automated real-time LiveMint RSS feed ingestion**.
+
 ## Pipeline Architecture
 
 ```
-LiveMint URL / Raw Text
+LiveMint URL / RSS Feed
+        │
+        ▼
+ RSS Consumer (rss_consumer.py)       ← auto-discovers live RSS articles
         │
         ▼
  Article Scraper (scraper.py)         ← retry with exponential backoff
@@ -31,6 +36,9 @@ LiveMint URL / Raw Text
 
 ## Key Design Decisions
 
+### Real-Time RSS Feed Auto-Discovery
+Includes `rss_consumer.py` to automatically pull the latest market and corporate news articles from LiveMint RSS feeds (`markets`, `companies`, `news`). Each entry link is automatically scraped for full text and processed through the impact pipeline.
+
 ### Dismissive-Context Filtering
 A stock being *mentioned* does not mean it is *affected*. If an article says "TCS traded flat" or "ITC remained range-bound", those stocks are excluded from analysis. The detector extracts the sentence around each mention and checks for dismissive language before marking a stock as impacted.
 
@@ -43,22 +51,12 @@ Sentiment is **not** computed globally on the full article. Each affected stock 
 
 The `mention_type` field in the output makes this transparent.
 
-### Signal Matrix
-
-| Sentiment | Confidence | Signal |
-|-----------|-----------|--------|
-| Positive | > 0.80 | **BUY** |
-| Positive | 0.60 – 0.80 | **WEAK BUY** |
-| Neutral | any | **HOLD** |
-| Negative | 0.60 – 0.80 | **WEAK SELL** |
-| Negative | > 0.80 | **SELL** |
-| Not affected | — | **NO IMPACT** |
-
 ## Modules
 
 | File | Purpose |
 |------|---------|
 | `schemas.py` | Pydantic models for all pipeline stages |
+| `rss_consumer.py` | LiveMint RSS feed parser and batch article processor |
 | `scraper.py` | LiveMint HTML fetcher with retry + DOM cleanup |
 | `cleaner.py` | Unicode normalization, financial figure preservation |
 | `nifty_dictionary.py` | NIFTY 50 tickers, aliases, sector mappings, regex-safe matching |
@@ -67,7 +65,7 @@ The `mention_type` field in the output makes this transparent.
 | `sentiment_analyzer.py` | Ollama LLM (primary) with weighted-keyword heuristic fallback |
 | `signal_generator.py` | Confidence × sentiment → trading signal |
 | `pipeline.py` | End-to-end orchestrator |
-| `cli.py` | CLI entry point with built-in demo |
+| `cli.py` | CLI entry point supporting single URLs, RSS feeds, and built-in demo |
 
 ## Usage
 
@@ -76,92 +74,30 @@ The `mention_type` field in the output makes this transparent.
 pip install -r requirements.txt
 ```
 
-### Run demo (no URL needed)
+### Automated Live RSS Feed Ingestion (New!)
+Automatically pull and analyze the latest market articles from LiveMint RSS feeds:
 ```bash
-python cli.py
+python cli.py --rss --rss-category markets --rss-max 5
 ```
 
-### Analyze a live article
+### Analyze a single live article URL
 ```bash
 python cli.py --url "https://www.livemint.com/..." --stocks "Reliance,TCS,HDFC Bank,L&T"
 ```
 
-### Python API
-```python
-from pipeline import FinancialNewsImpactPipeline
-
-pipeline = FinancialNewsImpactPipeline()
-result = pipeline.process_url(
-    url="https://www.livemint.com/...",
-    stocks=["Reliance", "TCS", "HDFC Bank", "L&T", "UltraTech Cement"]
-)
-print(result.model_dump_json(indent=2))
+### Run demo (offline sample text)
+```bash
+python cli.py
 ```
 
 ### CLI Options
 
 | Flag | Default | Description |
 |------|---------|-------------|
+| `--rss` | `False` | Pull and analyze live RSS articles |
+| `--rss-category` | `markets` | LiveMint feed category (`markets`, `companies`, `news`) |
+| `--rss-max` | `3` | Max RSS articles to process in batch |
 | `--url` | *(demo mode)* | LiveMint article URL |
 | `--stocks` | Top 20 NIFTY names | Comma-separated stock list |
 | `--ollama-url` | `http://localhost:11434` | Ollama server URL |
 | `--model` | `llama3.1:8b` | Ollama model name |
-
-## LLM Backend
-
-The sentiment analyzer tries **Ollama first** (30s timeout, 1 retry) for high-quality contextual reasoning. If Ollama is unavailable, it silently falls back to the deterministic heuristic engine — no setup required to get started.
-
-Supported models: `llama3.1:8b`, `qwen2.5:7b`, or any Ollama-hosted model that can output structured JSON.
-
-## Example Output
-
-```json
-{
-  "article": {
-    "title": "Government Boosts Infrastructure Capex; RBI Hints at Rate Adjustments",
-    "date": "2026-06-29",
-    "url": "https://www.livemint.com/market/infrastructure-capex-boost-2026"
-  },
-  "detected_events": [
-    {
-      "event_type": "Interest Rate / Monetary Policy",
-      "summary": "Article discusses interest rate / monetary policy (matched: liquidity easing, rate cut, rbi governor).",
-      "impacted_sectors": ["Banking & Financial Services", "Insurance", "Real Estate", "Automobile"]
-    },
-    {
-      "event_type": "Government Capex & Infrastructure Spending",
-      "summary": "Article discusses government capex & infrastructure spending (matched: infrastructure projects).",
-      "impacted_sectors": ["Infrastructure & Capital Goods", "Metals & Mining"]
-    }
-  ],
-  "results": [
-    {
-      "stock": "L&T",
-      "affected": true,
-      "mention_type": "direct",
-      "sentiment": "Positive",
-      "confidence": 0.88,
-      "signal": "BUY",
-      "reason": "Positive catalysts in interest rate / monetary policy context are expected to support L&T's near-term outlook."
-    },
-    {
-      "stock": "TCS",
-      "affected": false,
-      "mention_type": "none",
-      "sentiment": null,
-      "confidence": null,
-      "signal": "NO IMPACT",
-      "reason": "Article does not contain material business developments related to TCS."
-    },
-    {
-      "stock": "State Bank of India",
-      "affected": true,
-      "mention_type": "indirect_sector",
-      "sentiment": "Positive",
-      "confidence": 0.78,
-      "signal": "WEAK BUY",
-      "reason": "Positive catalysts in interest rate / monetary policy context are expected to support State Bank of India's near-term outlook."
-    }
-  ]
-}
-```
