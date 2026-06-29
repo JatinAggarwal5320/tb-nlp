@@ -1,9 +1,10 @@
-"""CLI entry-point for the Financial News Impact Pipeline."""
+"""CLI entry-point for the Financial News Impact Pipeline and RSS Consumer."""
 
 import argparse
 import json
 import logging
 from pipeline import FinancialNewsImpactPipeline
+from rss_consumer import LiveMintRSSConsumer
 
 logging.basicConfig(
     level=logging.INFO,
@@ -13,9 +14,19 @@ logging.basicConfig(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Analyze a LiveMint article for NIFTY stock impact.",
+        description="Analyze LiveMint articles or RSS feeds for NIFTY stock impact.",
     )
     parser.add_argument("--url", type=str, help="LiveMint article URL to analyze")
+    parser.add_argument(
+        "--rss", action="store_true", help="Automatically pull and analyze latest articles from LiveMint RSS feed"
+    )
+    parser.add_argument(
+        "--rss-category", type=str, default="markets", choices=["markets", "companies", "news"],
+        help="RSS category feed to pull ('markets', 'companies', 'news')"
+    )
+    parser.add_argument(
+        "--rss-max", type=int, default=3, help="Maximum RSS feed articles to process in batch"
+    )
     parser.add_argument(
         "--stocks",
         type=str,
@@ -43,10 +54,22 @@ def main():
         ollama_url=args.ollama_url, ollama_model=args.model,
     )
 
-    if args.url:
+    if args.rss:
+        logger = logging.getLogger("cli")
+        logger.info("Starting automated RSS ingestion (%s feed)...", args.rss_category)
+        rss_consumer = LiveMintRSSConsumer(pipeline=pipeline)
+        results = rss_consumer.process_rss_feed(
+            category=args.rss_category, stocks=stock_list, max_entries=args.rss_max
+        )
+        output_data = [r.model_dump() for r in results]
+        print(json.dumps(output_data, indent=2, ensure_ascii=False))
+
+    elif args.url:
         result = pipeline.process_url(args.url, stock_list)
+        print(json.dumps(result.model_dump(), indent=2, ensure_ascii=False))
+
     else:
-        print("No --url provided. Running demo on sample article text…\n")
+        print("No --url or --rss flag provided. Running demo on sample article text…\n")
         result = pipeline.process_text(
             title="Government Boosts Infrastructure Capex; RBI Hints at Rate Adjustments",
             date="2026-06-29",
@@ -68,8 +91,7 @@ def main():
             ),
             stocks=stock_list,
         )
-
-    print(json.dumps(result.model_dump(), indent=2, ensure_ascii=False))
+        print(json.dumps(result.model_dump(), indent=2, ensure_ascii=False))
 
 
 if __name__ == "__main__":
