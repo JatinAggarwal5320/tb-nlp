@@ -81,7 +81,7 @@ pip install -r requirements.txt
 python cli.py
 ```
 
-### Analyze a live article
+### Analyze a - live article
 ```bash
 python cli.py --url "https://www.livemint.com/..." --stocks "Reliance,TCS,HDFC Bank,L&T"
 ```
