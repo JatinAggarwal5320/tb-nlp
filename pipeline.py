@@ -71,25 +71,53 @@ class FinancialNewsImpactPipeline:
             text, stocks, detected_events,
         )
 
-        # Step 3 — Per-stock Sentiment + Signal
-        results: List[StockImpactResult] = []
+        # Step 3 — Batch LLM for direct mentions (ONE call), heuristics for rest
+        # Collect all directly-mentioned stocks for a single batch LLM call
+        direct_stocks_sentences = {}
+        stock_info = {}  # canonical -> (is_affected, mention_type, relevant_sents)
 
         for stock in stocks:
             canonical = self.nifty_dict.resolve_stock_name(stock) or stock
             is_affected, mention_type, relevant_sents = detection_map.get(
                 canonical, (False, "none", []),
             )
+            stock_info[canonical] = (is_affected, mention_type, relevant_sents)
+            if is_affected and mention_type == "direct":
+                direct_stocks_sentences[canonical] = relevant_sents
+
+        # Single batch LLM call for all direct mentions
+        batch_results = {}
+        if direct_stocks_sentences:
+            logger.info(
+                "Sending %d direct-mention stocks to batch LLM analysis...",
+                len(direct_stocks_sentences),
+            )
+            batch_results = self.sentiment_analyzer.batch_analyze_stocks(
+                article_title=title,
+                stocks_with_sentences=direct_stocks_sentences,
+            )
+
+        # Assemble final results
+        results: List[StockImpactResult] = []
+        for stock in stocks:
+            canonical = self.nifty_dict.resolve_stock_name(stock) or stock
+            is_affected, mention_type, relevant_sents = stock_info[canonical]
 
             if is_affected:
-                sentiment, confidence, reason = (
-                    self.sentiment_analyzer.analyze_stock_impact(
-                        stock_name=canonical,
-                        article_title=title,
-                        relevant_sentences=relevant_sents,
-                        events=detected_events,
-                        mention_type=mention_type,
+                # Check if batch LLM returned a result for this stock
+                if canonical in batch_results:
+                    sentiment, confidence, reason = batch_results[canonical]
+                else:
+                    # Fallback to heuristic (for indirect matches or LLM misses)
+                    sentiment, confidence, reason = (
+                        self.sentiment_analyzer.analyze_stock_impact(
+                            stock_name=canonical,
+                            article_title=title,
+                            relevant_sentences=relevant_sents,
+                            events=detected_events,
+                            mention_type=mention_type,
+                        )
                     )
-                )
                 signal = SignalGenerator.generate_signal(True, sentiment, confidence)
             else:
                 sentiment = None

@@ -65,7 +65,7 @@ The `mention_type` field in the output makes this transparent.
 | `sentiment_analyzer.py` | Ollama LLM (primary) with weighted-keyword heuristic fallback |
 | `signal_generator.py` | Confidence × sentiment → trading signal |
 | `pipeline.py` | End-to-end orchestrator |
-| `cli.py` | CLI entry point supporting single URLs, RSS feeds, and built-in demo |
+| `cli.py` | CLI entry point supporting single URLs and RSS feeds |
 
 ## Usage
 
@@ -85,11 +85,6 @@ python cli.py --rss --rss-category markets --rss-max 5
 python cli.py --url "https://www.livemint.com/..." --stocks "Reliance,TCS,HDFC Bank,L&T"
 ```
 
-### Run demo (offline sample text)
-```bash
-python cli.py
-```
-
 ### CLI Options
 
 | Flag | Default | Description |
@@ -97,7 +92,7 @@ python cli.py
 | `--rss` | `False` | Pull and analyze live RSS articles |
 | `--rss-category` | `markets` | LiveMint feed category (`markets`, `companies`, `news`) |
 | `--rss-max` | `3` | Max RSS articles to process in batch |
-| `--url` | *(demo mode)* | LiveMint article URL |
+| `--url` | `None` | LiveMint article URL to analyze |
 | `--stocks` | Top 20 NIFTY names | Comma-separated stock list |
 | `--ollama-url` | `http://localhost:11434` | Ollama server URL |
 | `--model` | `llama3.1:8b` | Ollama model name |

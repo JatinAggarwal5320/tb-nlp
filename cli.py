@@ -12,7 +12,11 @@ logging.basicConfig(
 )
 
 
+import sys
+
+
 def main():
+    sys.stdout.reconfigure(encoding='utf-8')
     parser = argparse.ArgumentParser(
         description="Analyze LiveMint articles or RSS feeds for NIFTY stock impact.",
     )
@@ -69,29 +73,7 @@ def main():
         print(json.dumps(result.model_dump(), indent=2, ensure_ascii=False))
 
     else:
-        print("No --url or --rss flag provided. Running demo on sample article text…\n")
-        result = pipeline.process_text(
-            title="Government Boosts Infrastructure Capex; RBI Hints at Rate Adjustments",
-            date="2026-06-29",
-            url="https://www.livemint.com/market/infrastructure-capex-boost-2026",
-            text=(
-                "The Indian government today announced a major ₹2.5 lakh crore "
-                "allocation for highways and urban infrastructure projects. "
-                "Larsen & Toubro (L&T) and UltraTech Cement are positioned as key "
-                "beneficiaries of this massive capex drive, with order wins expected "
-                "to surge over the next two quarters.\n"
-                "HDFC Bank and ICICI Bank shares showed strong momentum following "
-                "liquidity easing measures announced by the RBI governor. "
-                "The rate cut is expected to boost loan demand across the banking sector.\n"
-                "IT majors like TCS and Infosys traded flat amidst global tech "
-                "spending caution, with analysts maintaining a neutral outlook.\n"
-                "ITC remained range-bound as FMCG demand showed no new catalyst.\n"
-                "Reliance Industries announced plans to expand Jio's 5G network "
-                "coverage to 1,000 cities, signalling aggressive growth in telecom."
-            ),
-            stocks=stock_list,
-        )
-        print(json.dumps(result.model_dump(), indent=2, ensure_ascii=False))
+        parser.print_help()
 
 
 if __name__ == "__main__":
