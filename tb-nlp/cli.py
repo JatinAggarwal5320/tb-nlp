@@ -44,7 +44,7 @@ def main():
         help="Ollama base URL",
     )
     parser.add_argument(
-        "--model", type=str, default="llama3.1:8b",
+        "--model", type=str, default="llama3.2:3b",
         help="Ollama LLM model name",
     )
 

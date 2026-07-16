@@ -52,7 +52,7 @@ class TargetedSentimentAnalyzer:
     def __init__(
         self,
         ollama_url: Optional[str] = "http://localhost:11434",
-        model_name: str = "llama3.1:8b",
+        model_name: str = "llama3.2:3b",
     ):
         self.ollama_url = ollama_url
         self.model_name = model_name

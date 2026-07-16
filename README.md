@@ -85,6 +85,14 @@ python cli.py --rss --rss-category markets --rss-max 5
 python cli.py --url "https://www.livemint.com/..." --stocks "Reliance,TCS,HDFC Bank,L&T"
 ```
 
+### Benchmark Ollama Models (New!)
+A benchmarking script `benchmark.py` is included to measure the execution time and JSON output format validity of different Ollama models (e.g. `llama3.2:1b`, `qwen2.5:1.5b`, `llama3.2:3b`, `qwen2.5:3b`, `gemma2:2b`, `llama3.1:8b`) on your CPU.
+
+To run the benchmark:
+```bash
+python benchmark.py
+```
+
 ### CLI Options
 
 | Flag | Default | Description |
@@ -95,4 +103,4 @@ python cli.py --url "https://www.livemint.com/..." --stocks "Reliance,TCS,HDFC B
 | `--url` | `None` | LiveMint article URL to analyze |
 | `--stocks` | Top 20 NIFTY names | Comma-separated stock list |
 | `--ollama-url` | `http://localhost:11434` | Ollama server URL |
-| `--model` | `llama3.1:8b` | Ollama model name |
+| `--model` | `llama3.2:3b` | Ollama model name |

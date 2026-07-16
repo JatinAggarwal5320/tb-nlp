@@ -25,7 +25,7 @@ class FinancialNewsImpactPipeline:
     def __init__(
         self,
         ollama_url: Optional[str] = "http://localhost:11434",
-        ollama_model: str = "llama3.1:8b",
+        ollama_model: str = "llama3.2:3b",
     ):
         self.scraper = LiveMintScraper()
         self.cleaner = TextCleaner()

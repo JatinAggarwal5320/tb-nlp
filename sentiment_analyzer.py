@@ -52,7 +52,7 @@ class TargetedSentimentAnalyzer:
     def __init__(
         self,
         ollama_url: Optional[str] = "http://localhost:11434",
-        model_name: str = "llama3.1:8b",
+        model_name: str = "llama3.2:3b",
     ):
         self.ollama_url = ollama_url
         self.model_name = model_name
@@ -76,7 +76,7 @@ class TargetedSentimentAnalyzer:
 
         all_results = {}
         stock_items = list(stocks_with_sentences.items())
-        batch_size = 3
+        batch_size = 1
 
         for i in range(0, len(stock_items), batch_size):
             if self.ollama_offline:
@@ -133,12 +133,15 @@ class TargetedSentimentAnalyzer:
                     data = res.json().get("response", "")
                     parsed = json.loads(data)
 
-                    # Handle both array and dict-wrapped-array formats
+                    # Handle single dict, array, or dict-wrapped-array formats
                     if isinstance(parsed, dict):
-                        for key in ("results", "stocks", "analysis"):
-                            if key in parsed and isinstance(parsed[key], list):
-                                parsed = parsed[key]
-                                break
+                        if "stock" in parsed:
+                            parsed = [parsed]
+                        else:
+                            for key in ("results", "stocks", "analysis"):
+                                if key in parsed and isinstance(parsed[key], list):
+                                    parsed = parsed[key]
+                                    break
 
                     if isinstance(parsed, list):
                         results = {}
